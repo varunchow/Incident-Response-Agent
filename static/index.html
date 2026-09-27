@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Incident Response Agent</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; background: #0f1117; color: #e6e6e6; }
+  h1 { font-size: 1.4rem; }
+  textarea { width: 100%; min-height: 90px; background: #1a1d27; color: #e6e6e6; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.9rem; }
+  button { background: #4f7cff; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin-top: 8px; }
+  button:hover { background: #3d63d6; }
+  button.secondary { background: #333; }
+  .card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 16px; margin-top: 16px; }
+  .tag { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; margin-bottom: 8px; }
+  .tag.hit { background: #1f4d2e; color: #7ee0a0; }
+  .tag.miss { background: #4d2e1f; color: #e0a07e; }
+  .memory { font-size: 0.85rem; color: #aaa; border-left: 2px solid #4f7cff; padding-left: 10px; margin: 6px 0; white-space: pre-wrap; }
+  #response { white-space: pre-wrap; line-height: 1.5; }
+  label { font-size: 0.85rem; color: #aaa; display: block; margin-top: 12px; }
+</style>
+</head>
+<body>
+  <h1>🚨 Incident Response Agent</h1>
+  <p style="color:#aaa; font-size:0.9rem;">Describe a new incident. The agent recalls similar past incidents from memory before responding.</p>
+
+  <textarea id="description" placeholder="e.g. payments-api throwing psycopg2.OperationalError, checkout requests timing out">payments-api is throwing psycopg2.OperationalError: remaining connection slots are reserved, checkout requests timing out</textarea>
+  <br>
+  <button onclick="submitIncident()">Submit Incident</button>
+
+  <div id="result" style="display:none" class="card">
+    <span id="matchTag" class="tag"></span>
+    <div id="response"></div>
+    <div id="memories"></div>
+
+    <label>Resolution (what fixed it?)</label>
+    <textarea id="resolution" placeholder="e.g. restarted pods and closed leaking connections"></textarea>
+    <br>
+    <button class="secondary" onclick="markResolved(true)">✅ Mark Resolved</button>
+    <button class="secondary" onclick="markResolved(false)">❌ Didn't Work</button>
+  </div>
+
+  <script>
+    let currentDescription = "";
+
+    async function submitIncident() {
+      currentDescription = document.getElementById('description').value;
+      document.getElementById('result').style.display = 'block';
+      document.getElementById('response').textContent = "Thinking...";
+      document.getElementById('memories').innerHTML = "";
+
+      const res = await fetch('/api/incident', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description: currentDescription})
+      });
+      const data = await res.json();
+
+      const tag = document.getElementById('matchTag');
+      if (data.had_memory_match) {
+        tag.textContent = `🧠 Found ${data.matched_memories.length} related memories`;
+        tag.className = 'tag hit';
+      } else {
+        tag.textContent = '⚠️ No memory match — new type of incident';
+        tag.className = 'tag miss';
+      }
+
+      document.getElementById('response').textContent = data.response;
+
+      const memDiv = document.getElementById('memories');
+      memDiv.innerHTML = '';
+      data.matched_memories.forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'memory';
+        el.textContent = m;
+        memDiv.appendChild(el);
+      });
+    }
+
+    async function markResolved(worked) {
+      const resolution = document.getElementById('resolution').value || "(no notes provided)";
+      await fetch('/api/resolve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description: currentDescription, resolution, worked})
+      });
+      alert('Saved to memory. Try submitting a similar incident again to see the agent use this outcome.');
+    }
+  </script>
+</body>
+</html>

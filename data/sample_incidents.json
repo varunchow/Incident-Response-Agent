@@ -1,0 +1,52 @@
+[
+  {
+    "id": "INC-001",
+    "service": "payments-api",
+    "error_signature": "psycopg2.OperationalError: FATAL: remaining connection slots are reserved",
+    "symptoms": "Checkout requests started timing out for ~8 minutes, error rate spiked to 40%.",
+    "root_cause": "A background reconciliation job opened DB connections in a loop without closing them, exhausting the Postgres connection pool.",
+    "resolution_steps": "1. Identified the reconciliation job via pg_stat_activity. 2. Killed the stuck job. 3. Restarted the payments-api pods to reset pool connections. 4. Added a context manager to the job so connections are always released.",
+    "resolution_time_minutes": 22,
+    "timestamp": "2026-04-12T09:15:00Z"
+  },
+  {
+    "id": "INC-002",
+    "service": "auth-service",
+    "error_signature": "jwt.exceptions.ExpiredSignatureError: Signature has expired",
+    "symptoms": "All logged-in users were suddenly signed out and could not log back in.",
+    "root_cause": "The TLS certificate used to sign JWTs expired at midnight UTC; the auto-renewal cron job had silently failed for two weeks.",
+    "resolution_steps": "1. Manually renewed the certificate via the cloud provider console. 2. Rotated the JWT signing key. 3. Fixed the renewal cron by adding alerting on failure so it can't fail silently again.",
+    "resolution_time_minutes": 35,
+    "timestamp": "2026-05-03T00:10:00Z"
+  },
+  {
+    "id": "INC-003",
+    "service": "checkout-worker",
+    "error_signature": "MemoryError: Unable to allocate array, out of memory",
+    "symptoms": "Checkout worker pods were being OOM-killed and restarted every few minutes under load.",
+    "root_cause": "A recent deploy introduced a bug where cart items were loaded into memory in full instead of streamed, causing memory usage to scale with cart size.",
+    "resolution_steps": "1. Rolled back the deploy. 2. Rewrote the cart loader to stream items in batches of 100. 3. Added a memory usage alert at 80% of pod limit.",
+    "resolution_time_minutes": 41,
+    "timestamp": "2026-06-19T14:40:00Z"
+  },
+  {
+    "id": "INC-004",
+    "service": "search-api",
+    "error_signature": "elasticsearch.exceptions.ConnectionTimeout: Connection timed out after 30000ms",
+    "symptoms": "Search results were empty or extremely slow (10s+) sitewide.",
+    "root_cause": "A single Elasticsearch data node had a failing disk, causing shard rebalancing to hammer the remaining nodes.",
+    "resolution_steps": "1. Identified the failing node via cluster health API. 2. Cordoned and removed the bad node. 3. Let shards rebalance across healthy nodes. 4. Replaced the failing disk.",
+    "resolution_time_minutes": 55,
+    "timestamp": "2026-07-02T11:05:00Z"
+  },
+  {
+    "id": "INC-005",
+    "service": "notifications-service",
+    "error_signature": "redis.exceptions.ResponseError: OOM command not allowed when used memory > maxmemory",
+    "symptoms": "Push notifications and emails stopped sending entirely.",
+    "root_cause": "A cache stampede after a deploy caused millions of duplicate keys to be written to Redis with no TTL, filling memory.",
+    "resolution_steps": "1. Flushed the offending key pattern from Redis. 2. Added a default TTL of 24h to all notification dedup keys. 3. Added a Redis memory usage alert at 75%.",
+    "resolution_time_minutes": 18,
+    "timestamp": "2026-08-21T16:30:00Z"
+  }
+]

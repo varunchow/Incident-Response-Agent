@@ -1,0 +1,162 @@
+[
+  {
+    "id": "INC-101",
+    "service": "payments-api",
+    "error_signature": "java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms.",
+    "symptoms": "Checkout failures; users see \"Unable to process payment\" errors.",
+    "root_cause": "A sudden spike in checkout traffic exhausted the HikariCP connection pool because the maxPoolSize was set too low and idle connections were not being reclaimed.",
+    "resolution_steps": "1. Increased maxPoolSize from 20 to 50. 2. Adjusted idleTimeout to 600000ms. 3. Deployed config change to prod.",
+    "resolution_time_minutes": 45,
+    "timestamp": "2026-08-12T14:23:00Z"
+  },
+  {
+    "id": "INC-102",
+    "service": "order-processor",
+    "error_signature": "java.lang.OutOfMemoryError: Java heap space\n    at com.company.order.OrderHandler.process(OrderHandler.java:87)",
+    "symptoms": "Orders were stuck in \"processing\" state; downstream services timed out.",
+    "root_cause": "A recent code change introduced a static List that retained every processed order for audit, never clearing it, leading to a memory leak.",
+    "resolution_steps": "1. Reverted the offending commit. 2. Added explicit clear() on the list. 3. Restarted the service pods.",
+    "resolution_time_minutes": 70,
+    "timestamp": "2026-07-03T09:11:45Z"
+  },
+  {
+    "id": "INC-103",
+    "service": "auth-service",
+    "error_signature": "java.lang.IllegalStateException: Missing required environment variable: JWT_SECRET",
+    "symptoms": "All login attempts failed with 500 errors; SSO redirects looped.",
+    "root_cause": "The CI/CD pipeline skipped the step that injects the JWT_SECRET secret during the March 15 deployment, leaving the container without the variable.",
+    "resolution_steps": "1. Rolled back to previous release. 2. Fixed pipeline to include secret injection. 3. Redeployed corrected version.",
+    "resolution_time_minutes": 30,
+    "timestamp": "2026-05-19T22:47:13Z"
+  },
+  {
+    "id": "INC-104",
+    "service": "notifications-service",
+    "error_signature": "RateLimitExceededException: User exceeded 5 requests per second",
+    "symptoms": "Push notifications were throttled; some users did not receive alerts.",
+    "root_cause": "A misconfigured rate\u2011limit rule in the API gateway applied a global limit instead of per\u2011user, causing legitimate traffic to be blocked.",
+    "resolution_steps": "1. Updated the gateway rule to use per\u2011user key. 2. Reloaded gateway config. 3. Monitored traffic for 15 minutes.",
+    "resolution_time_minutes": 25,
+    "timestamp": "2026-06-27T16:02:58Z"
+  },
+  {
+    "id": "INC-105",
+    "service": "inventory-worker",
+    "error_signature": "java.util.concurrent.locks.LockTimeoutException: Failed to acquire lock after 10 seconds",
+    "symptoms": "Inventory updates stalled; product availability pages showed stale data.",
+    "root_cause": "A new batch job introduced a synchronized block that held a DB row lock for the entire batch, causing other workers to time out.",
+    "resolution_steps": "1. Paused the batch job. 2. Refactored code to use row\u2011level lock with shorter scope. 3. Restarted worker nodes.",
+    "resolution_time_minutes": 55,
+    "timestamp": "2026-04-11T08:34:20Z"
+  },
+  {
+    "id": "INC-106",
+    "service": "shipping-service",
+    "error_signature": "java.net.SocketTimeoutException: Read timed out after 5000ms\n    at okhttp3.internal.http2.Http2Reader.nextHeader(Http2Reader.java:362)",
+    "symptoms": "Shipping label generation failed; orders remained in \"awaiting label\" status.",
+    "root_cause": "DNS caching bug in the Java resolver caused stale IPs for the third\u2011party carrier API after a provider IP change, leading to repeated timeouts.",
+    "resolution_steps": "1. Flushed DNS cache on all pods. 2. Updated resolver library to latest version. 3. Added health check to detect future IP changes.",
+    "resolution_time_minutes": 40,
+    "timestamp": "2026-08-01T13:19:42Z"
+  },
+  {
+    "id": "INC-107",
+    "service": "analytics-service",
+    "error_signature": "com.fasterxml.jackson.databind.exc.InvalidDefinitionException: Cannot construct instance of `com.company.analytics.Event`\n    at com.fasterxml.jackson.databind.exc.InvalidDefinitionException.from(InvalidDefinitionException.java:67)",
+    "symptoms": "Event ingestion pipeline dropped records; dashboards showed incomplete data.",
+    "root_cause": "A schema change added a new non\u2011nullable field without providing a default, breaking deserialization of older event payloads.",
+    "resolution_steps": "1. Added default value for the new field. 2. Redeployed the service with updated deserializer. 3. Re\u2011processed failed events from the dead\u2011letter queue.",
+    "resolution_time_minutes": 90,
+    "timestamp": "2026-07-22T10:05:07Z"
+  },
+  {
+    "id": "INC-108",
+    "service": "recommendation-engine",
+    "error_signature": "java.lang.IllegalStateException: Thread pool executor terminated\n    at java.util.concurrent.ThreadPoolExecutor.execute(ThreadPoolExecutor.java:1125)",
+    "symptoms": "Personalized recommendations stopped loading; UI displayed fallback content.",
+    "root_cause": "An unbounded work queue allowed tasks to accumulate, exhausting the executor's threads and causing the pool to shut down after a watchdog timeout.",
+    "resolution_steps": "1. Added a bounded queue with max 5000 tasks. 2. Implemented back\u2011pressure on upstream feeder. 3. Restarted the engine pods.",
+    "resolution_time_minutes": 65,
+    "timestamp": "2026-09-10T07:58:31Z"
+  },
+  {
+    "id": "INC-101",
+    "service": "payments-api",
+    "error_signature": "tls_handshake_error: certificate has expired\n    at com.payment.tls.Handshake.perform(Handshake.java:87)",
+    "symptoms": "Customers received TLS handshake failures when attempting to submit card details.",
+    "root_cause": "The TLS certificate for the payments endpoint expired on 2026-08-12 and automated renewal script failed due to missing write permission on the cert store.",
+    "resolution_steps": "1. Restored write permission on /etc/letsencrypt. 2. Manually renewed the certificate with certbot. 3. Restarted payments-api pods. 4. Updated CI job to alert on renewal failures.",
+    "resolution_time_minutes": 95,
+    "timestamp": "2026-08-14T03:22:10Z"
+  },
+  {
+    "id": "INC-102",
+    "service": "auth-service",
+    "error_signature": "java.lang.IllegalStateException: Duplicate token generated\n    at com.auth.session.TokenManager.createToken(TokenManager.java:54)",
+    "symptoms": "Some users received multiple active sessions after login, causing unexpected logout behavior.",
+    "root_cause": "A race condition in the token creation path allowed two concurrent requests to insert the same user record before the unique constraint was enforced.",
+    "resolution_steps": "1. Added synchronized block around token generation. 2. Introduced database unique constraint on user_id+token. 3. Deployed hotfix. 4. Monitored for duplicate token events.",
+    "resolution_time_minutes": 68,
+    "timestamp": "2026-07-03T14:07:45Z"
+  },
+  {
+    "id": "INC-103",
+    "service": "orders-service",
+    "error_signature": "SELECT * FROM order_items WHERE order_id = ?;\nSELECT * FROM products WHERE id = ?; // repeated per item",
+    "symptoms": "Order detail pages took >30\u202fs to load during peak traffic.",
+    "root_cause": "An N+1 query pattern was introduced after a recent ORM migration, causing a separate product lookup for each line item.",
+    "resolution_steps": "1. Refactored query to join order_items with products. 2. Added batch loader in the data access layer. 3. Deployed new version. 4. Added regression test for query count.",
+    "resolution_time_minutes": 82,
+    "timestamp": "2026-06-18T09:31:12Z"
+  },
+  {
+    "id": "INC-104",
+    "service": "recommendation-service",
+    "error_signature": "CacheMissException: key=user:1234 not found\n    at com.reco.cache.StampedeProtector.check(StampedeProtector.java:27)",
+    "symptoms": "Spike in DB CPU usage and latency; recommendation API returned 504 after cache cold start.",
+    "root_cause": "A cache stampede occurred when a popular key expired; multiple instances simultaneously queried the database, overwhelming it.",
+    "resolution_steps": "1. Enabled request coalescing with a mutex per cache key. 2. Added exponential backoff for cache miss retries. 3. Warmed critical keys on service start. 4. Monitored cache hit ratio.",
+    "resolution_time_minutes": 57,
+    "timestamp": "2026-05-22T19:44:03Z"
+  },
+  {
+    "id": "INC-105",
+    "service": "shipping-worker",
+    "error_signature": "dns_lookup_error: NXDOMAIN for api.shippingpartner.com\n    at com.shipper.http.DnsResolver.resolve(DnsResolver.java:112)",
+    "symptoms": "Outbound calls to the shipping provider failed, causing order shipments to be delayed by several hours.",
+    "root_cause": "The internal DNS server lost its zone file for the partner domain after a network partition, returning NXDOMAIN responses.",
+    "resolution_steps": "1. Restored zone file from backup on DNS primary. 2. Forced zone reload on all DNS replicas. 3. Added health check for critical external domains. 4. Updated deployment to fallback to public DNS on failure.",
+    "resolution_time_minutes": 73,
+    "timestamp": "2026-04-09T06:15:58Z"
+  },
+  {
+    "id": "INC-106",
+    "service": "logging-service",
+    "error_signature": "IOException: No space left on device\n    at java.io.FileOutputStream.writeBytes(FileOutputStream.java:351)",
+    "symptoms": "Application logs stopped being persisted; monitoring alerts showed missing log streams.",
+    "root_cause": "The /var/log volume on the logging nodes filled to 100\u202f% after log retention policy was misconfigured, preventing new writes.",
+    "resolution_steps": "1. Cleaned up old log files older than 30\u202fdays. 2. Corrected retention policy to 14\u202fdays. 3. Added disk usage alert thresholds. 4. Restarted logging agents.",
+    "resolution_time_minutes": 44,
+    "timestamp": "2026-03-30T12:02:27Z"
+  },
+  {
+    "id": "INC-107",
+    "service": "checkout-worker",
+    "error_signature": "FeatureFlagException: flag 'new-payment-flow' is undefined\n    at com.checkout.feature.FlagChecker.check(FlagChecker.java:78)",
+    "symptoms": "Checkout requests returned 500 errors for a subset of users after a feature rollout.",
+    "root_cause": "The feature flag configuration was missing in the production config store due to a failed merge, causing the worker to throw an exception when the flag was accessed.",
+    "resolution_steps": "1. Restored the missing flag entry in the config store. 2. Deployed a guard clause to fallback to default behavior. 3. Added validation step in CI to verify required flags. 4. Reprocessed failed checkout jobs.",
+    "resolution_time_minutes": 61,
+    "timestamp": "2026-08-01T22:38:11Z"
+  },
+  {
+    "id": "INC-108",
+    "service": "email-sender",
+    "error_signature": "java.util.concurrent.RejectedExecutionException: Task queue full\n    at java.util.concurrent.ThreadPoolExecutor.execute(ThreadPoolExecutor.java:1152)",
+    "symptoms": "Bulk email campaigns timed out; users did not receive password reset emails.",
+    "root_cause": "Thread pool exhaustion caused by an unbounded queue growth during a promotional campaign, leading to task rejections.",
+    "resolution_steps": "1. Increased core pool size and set a bounded queue limit. 2. Implemented backpressure in the email enqueue path. 3. Restarted email-sender service. 4. Added monitoring for queue length and thread utilization.",
+    "resolution_time_minutes": 79,
+    "timestamp": "2026-07-20T15:56:44Z"
+  }
+]
