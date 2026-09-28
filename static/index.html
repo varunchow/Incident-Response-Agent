@@ -2,89 +2,541 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Incident Response Agent</title>
 <style>
-  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; background: #0f1117; color: #e6e6e6; }
-  h1 { font-size: 1.4rem; }
-  textarea { width: 100%; min-height: 90px; background: #1a1d27; color: #e6e6e6; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.9rem; }
-  button { background: #4f7cff; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin-top: 8px; }
-  button:hover { background: #3d63d6; }
-  button.secondary { background: #333; }
-  .card { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 10px; padding: 16px; margin-top: 16px; }
-  .tag { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; margin-bottom: 8px; }
-  .tag.hit { background: #1f4d2e; color: #7ee0a0; }
-  .tag.miss { background: #4d2e1f; color: #e0a07e; }
-  .memory { font-size: 0.85rem; color: #aaa; border-left: 2px solid #4f7cff; padding-left: 10px; margin: 6px 0; white-space: pre-wrap; }
-  #response { white-space: pre-wrap; line-height: 1.5; }
-  label { font-size: 0.85rem; color: #aaa; display: block; margin-top: 12px; }
+  :root {
+    --bg: #0b1020;
+    --panel: #121a2b;
+    --panel-2: #0f1626;
+    --border: #26324a;
+    --text: #eef2ff;
+    --muted: #9aa7bf;
+    --accent: #6d8cff;
+    --success: #39c27f;
+    --warning: #f0a15a;
+    --danger: #e66b6b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at top, #111a31 0%, var(--bg) 45%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 34px 18px 60px;
+  }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .eyebrow {
+    display: inline-block;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: #b9c6ff;
+    background: rgba(109, 140, 255, 0.08);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 14px 0 8px;
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.05;
+  }
+
+  .hero p {
+    max-width: 760px;
+    margin: 0 auto;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .memory-flow {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin: 26px 0;
+  }
+
+  .flow-step {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px 10px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+
+  .flow-step strong {
+    display: block;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .flow-step.active {
+    border-color: rgba(109, 140, 255, 0.7);
+    box-shadow: 0 0 0 1px rgba(109, 140, 255, 0.2) inset;
+  }
+
+  .card {
+    background: rgba(18, 26, 43, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 18px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  }
+
+  .card h2 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+  }
+
+  .card-subtitle {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  textarea,
+  input {
+    width: 100%;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font: inherit;
+    outline: none;
+  }
+
+  textarea:focus,
+  input:focus {
+    border-color: rgba(109, 140, 255, 0.75);
+    box-shadow: 0 0 0 3px rgba(109, 140, 255, 0.08);
+  }
+
+  textarea {
+    min-height: 110px;
+    resize: vertical;
+  }
+
+  label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.84rem;
+    margin: 14px 0 7px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  button {
+    border: 0;
+    border-radius: 10px;
+    padding: 11px 16px;
+    color: #fff;
+    background: var(--accent);
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  button.secondary { background: #27324a; }
+  button.success { background: #217a52; }
+  button.danger { background: #793d45; }
+
+  .status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    background: rgba(15, 22, 38, 0.8);
+  }
+
+  .status strong { color: var(--text); }
+  .status.success { border-color: rgba(57, 194, 127, 0.45); }
+  .status.warning { border-color: rgba(240, 161, 90, 0.45); }
+  .status.error { border-color: rgba(230, 107, 107, 0.5); }
+
+  .response {
+    white-space: pre-wrap;
+    line-height: 1.65;
+    color: #f5f7ff;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px;
+  }
+
+  .memory-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .memory {
+    background: #0d1423;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 13px;
+    color: #c4ccdc;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+  }
+
+  .memory-title {
+    color: var(--text);
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .resolution-result {
+    margin-top: 14px;
+    display: none;
+  }
+
+  .resolution-result.show { display: block; }
+
+  .reflect-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: end;
+  }
+
+  .insight {
+    margin-top: 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
+
+  .hidden { display: none !important; }
+
+  .small {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .footer-note {
+    margin-top: 24px;
+    text-align: center;
+    color: #73809a;
+    font-size: 0.78rem;
+  }
+
+  @media (max-width: 780px) {
+    .memory-flow { grid-template-columns: 1fr; }
+    .reflect-grid { grid-template-columns: 1fr; }
+    .status { flex-direction: column; align-items: flex-start; }
+  }
 </style>
 </head>
 <body>
-  <h1>🚨 Incident Response Agent</h1>
-  <p style="color:#aaa; font-size:0.9rem;">Describe a new incident. The agent recalls similar past incidents from memory before responding.</p>
+  <div class="container">
+    <header class="hero">
+      <span class="eyebrow">Hindsight-powered incident response</span>
+      <h1>🚨 Incident Response Agent</h1>
+      <p>
+        Submit an incident, recall relevant experience from memory, get an actionable analysis,
+        then record the resolution so future incidents can benefit from what happened today.
+      </p>
+    </header>
 
-  <textarea id="description" placeholder="e.g. payments-api throwing psycopg2.OperationalError, checkout requests timing out">payments-api is throwing psycopg2.OperationalError: remaining connection slots are reserved, checkout requests timing out</textarea>
-  <br>
-  <button onclick="submitIncident()">Submit Incident</button>
+    <section class="memory-flow" aria-label="Memory lifecycle">
+      <div id="flowRecall" class="flow-step active"><strong>1. RECALL</strong>Find past incidents</div>
+      <div id="flowAnalyze" class="flow-step"><strong>2. ANALYZE</strong>LLM uses context</div>
+      <div id="flowResolve" class="flow-step"><strong>3. RESOLVE</strong>Record what happened</div>
+      <div id="flowRetain" class="flow-step"><strong>4. RETAIN</strong>Store the outcome</div>
+      <div id="flowReflect" class="flow-step"><strong>5. REFLECT</strong>Find patterns</div>
+    </section>
 
-  <div id="result" style="display:none" class="card">
-    <span id="matchTag" class="tag"></span>
-    <div id="response"></div>
-    <div id="memories"></div>
+    <section class="card">
+      <h2>1. Analyze an Incident</h2>
+      <p class="card-subtitle">Describe the current production problem. Hindsight is queried before the response is generated.</p>
 
-    <label>Resolution (what fixed it?)</label>
-    <textarea id="resolution" placeholder="e.g. restarted pods and closed leaking connections"></textarea>
-    <br>
-    <button class="secondary" onclick="markResolved(true)">✅ Mark Resolved</button>
-    <button class="secondary" onclick="markResolved(false)">❌ Didn't Work</button>
+      <label for="description">Incident description</label>
+      <textarea id="description" placeholder="e.g. payments-api is throwing database connection errors and checkout requests are timing out">payments-api is throwing psycopg2.OperationalError: remaining connection slots are reserved, checkout requests timing out</textarea>
+
+      <div class="actions">
+        <button id="analyzeBtn" onclick="submitIncident()">Analyze Incident</button>
+      </div>
+    </section>
+
+    <section id="resultCard" class="card hidden">
+      <h2>2. Hindsight + Agent Analysis</h2>
+      <p class="card-subtitle">See exactly whether historical memory was available and how the agent responded.</p>
+
+      <div id="matchStatus" class="status"></div>
+
+      <div>
+        <div class="small" style="margin-bottom:8px;">🤖 Agent analysis</div>
+        <div id="response" class="response">Thinking...</div>
+      </div>
+
+      <div id="memorySection" style="margin-top:18px;">
+        <div class="small">🧠 Recalled memories</div>
+        <div id="memories" class="memory-list"></div>
+      </div>
+    </section>
+
+    <section id="resolutionCard" class="card hidden">
+      <h2>3. Record the Resolution</h2>
+      <p class="card-subtitle">Tell the agent what was tried and whether it worked. The outcome will be retained in Hindsight.</p>
+
+      <label for="resolution">Resolution / action taken</label>
+      <textarea id="resolution" placeholder="e.g. fixed the leaking database connections in the reconciliation job and restarted the service"></textarea>
+
+      <div class="actions">
+        <button class="success" id="resolvedBtn" onclick="markResolved(true)">✅ Resolved</button>
+        <button class="danger" id="failedBtn" onclick="markResolved(false)">❌ Didn't Work</button>
+      </div>
+
+      <div id="resolutionResult" class="resolution-result"></div>
+    </section>
+
+    <section class="card">
+      <h2>4. Reflect on a Service</h2>
+      <p class="card-subtitle">Use Hindsight reflection to look across incidents and identify recurring operational patterns.</p>
+
+      <div class="reflect-grid">
+        <div>
+          <label for="service">Service</label>
+          <input id="service" value="payments-api" placeholder="e.g. payments-api">
+        </div>
+        <button id="reflectBtn" onclick="reflectService()">Analyze Patterns</button>
+      </div>
+
+      <div id="insight" class="insight hidden"></div>
+    </section>
+
+    <p class="footer-note">
+      Memory lifecycle: historical experience → recall → incident response → resolution outcome → future recall.
+    </p>
   </div>
 
-  <script>
-    let currentDescription = "";
+<script>
+  let currentDescription = "";
 
-    async function submitIncident() {
-      currentDescription = document.getElementById('description').value;
-      document.getElementById('result').style.display = 'block';
-      document.getElementById('response').textContent = "Thinking...";
-      document.getElementById('memories').innerHTML = "";
+  function setFlow(activeId) {
+    document.querySelectorAll('.flow-step').forEach(el => el.classList.remove('active'));
+    const active = document.getElementById(activeId);
+    if (active) active.classList.add('active');
+  }
 
+  function setButtonLoading(button, loadingText, disabled) {
+    if (!button) return;
+    if (disabled) {
+      button.dataset.originalText = button.textContent;
+      button.textContent = loadingText;
+      button.disabled = true;
+    } else {
+      button.textContent = button.dataset.originalText || button.textContent;
+      button.disabled = false;
+    }
+  }
+
+  function showStatus(message, type) {
+    const el = document.getElementById('matchStatus');
+    el.className = `status ${type || ''}`;
+    el.innerHTML = message;
+  }
+
+  async function submitIncident() {
+    const description = document.getElementById('description').value.trim();
+    if (!description) {
+      alert('Please describe the incident first.');
+      return;
+    }
+
+    currentDescription = description;
+    const resultCard = document.getElementById('resultCard');
+    const resolutionCard = document.getElementById('resolutionCard');
+    const insight = document.getElementById('insight');
+    const memories = document.getElementById('memories');
+    const response = document.getElementById('response');
+    const btn = document.getElementById('analyzeBtn');
+
+    resultCard.classList.remove('hidden');
+    resolutionCard.classList.remove('hidden');
+    response.textContent = 'Thinking...';
+    memories.innerHTML = '';
+    insight.classList.add('hidden');
+    document.getElementById('resolutionResult').className = 'resolution-result';
+    showStatus('🧠 Searching Hindsight for relevant historical incidents...', '');
+    setFlow('flowRecall');
+    setButtonLoading(btn, 'Recalling memory...', true);
+
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
       const res = await fetch('/api/incident', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({description: currentDescription})
+        body: JSON.stringify({ description: description })
       });
+
+      if (!res.ok) throw new Error(`Incident API returned ${res.status}`);
+
       const data = await res.json();
 
-      const tag = document.getElementById('matchTag');
+      setFlow('flowAnalyze');
+
       if (data.had_memory_match) {
-        tag.textContent = `🧠 Found ${data.matched_memories.length} related memories`;
-        tag.className = 'tag hit';
+        showStatus(
+          `<strong>🧠 MEMORY FOUND</strong><span>${data.matched_memories.length} related incident${data.matched_memories.length === 1 ? '' : 's'} recalled from Hindsight.</span>`,
+          'success'
+        );
       } else {
-        tag.textContent = '⚠️ No memory match — new type of incident';
-        tag.className = 'tag miss';
+        showStatus(
+          '<strong>○ NO RELEVANT MEMORY</strong><span>This appears to be a new incident pattern with no matching historical memory.</span>',
+          'warning'
+        );
       }
 
-      document.getElementById('response').textContent = data.response;
+      response.textContent = data.response || 'No response returned.';
 
-      const memDiv = document.getElementById('memories');
-      memDiv.innerHTML = '';
-      data.matched_memories.forEach(m => {
-        const el = document.createElement('div');
-        el.className = 'memory';
-        el.textContent = m;
-        memDiv.appendChild(el);
-      });
+      if (Array.isArray(data.matched_memories) && data.matched_memories.length > 0) {
+        data.matched_memories.forEach((memory, index) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'memory';
+
+          const title = document.createElement('div');
+          title.className = 'memory-title';
+          title.textContent = `Memory ${index + 1}`;
+
+          const body = document.createElement('div');
+          body.textContent = memory;
+
+          wrapper.appendChild(title);
+          wrapper.appendChild(body);
+          memories.appendChild(wrapper);
+        });
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'memory';
+        empty.textContent = 'No historical memory was returned for this incident.';
+        memories.appendChild(empty);
+      }
+    } catch (error) {
+      showStatus(`<strong>⚠️ Request failed</strong><span>${escapeHtml(error.message)}</span>`, 'error');
+      response.textContent = 'Unable to analyze the incident. Check that the FastAPI server and environment variables are configured correctly.';
+    } finally {
+      setButtonLoading(btn, '', false);
+    }
+  }
+
+  async function markResolved(worked) {
+    if (!currentDescription) {
+      alert('Analyze an incident first.');
+      return;
     }
 
-    async function markResolved(worked) {
-      const resolution = document.getElementById('resolution').value || "(no notes provided)";
-      await fetch('/api/resolve', {
+    const resolution = document.getElementById('resolution').value.trim() || '(no notes provided)';
+    const clicked = worked ? document.getElementById('resolvedBtn') : document.getElementById('failedBtn');
+    const result = document.getElementById('resolutionResult');
+
+    setFlow('flowRetain');
+    setButtonLoading(clicked, 'Saving...', true);
+
+    try {
+      const res = await fetch('/api/resolve', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({description: currentDescription, resolution, worked})
+        body: JSON.stringify({
+          description: currentDescription,
+          resolution: resolution,
+          worked: worked
+        })
       });
-      alert('Saved to memory. Try submitting a similar incident again to see the agent use this outcome.');
+
+      if (!res.ok) throw new Error(`Resolution API returned ${res.status}`);
+
+      result.className = `resolution-result show`;
+      result.innerHTML = worked
+        ? '<div class="status success"><strong>✓ MEMORY UPDATED</strong><span>This successful resolution was retained in Hindsight and can be recalled during future incidents.</span></div>'
+        : '<div class="status warning"><strong>⚠ MEMORY UPDATED</strong><span>This failed attempt was retained in Hindsight so future incidents can see that it did not resolve the problem.</span></div>';
+
+      document.getElementById('resolution').value = '';
+    } catch (error) {
+      result.className = 'resolution-result show';
+      result.innerHTML = `<div class="status error"><strong>⚠️ Could not save resolution</strong><span>${escapeHtml(error.message)}</span></div>`;
+    } finally {
+      setButtonLoading(clicked, '', false);
     }
-  </script>
+  }
+
+  async function reflectService() {
+    const service = document.getElementById('service').value.trim();
+    const btn = document.getElementById('reflectBtn');
+    const insight = document.getElementById('insight');
+
+    if (!service) {
+      alert('Enter a service name first.');
+      return;
+    }
+
+    setFlow('flowReflect');
+    setButtonLoading(btn, 'Reflecting...', true);
+    insight.classList.remove('hidden');
+    insight.textContent = 'Analyzing incident history...';
+
+    try {
+      const res = await fetch('/api/reflect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({service: service})
+      });
+
+      if (!res.ok) throw new Error(`Reflect API returned ${res.status}`);
+
+      const data = await res.json();
+      insight.textContent = data.insight || 'No reflection result returned.';
+    } catch (error) {
+      insight.textContent = `Unable to generate reflection: ${error.message}`;
+    } finally {
+      setButtonLoading(btn, '', false);
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+</script>
 </body>
 </html>
